@@ -97,8 +97,23 @@ export function decide(i: DecideInput): Decision {
     actions.push({ kind: 'log', text: `${spec.name}: пульс ${fmtAge(age)}, но процесс только что (пере)запущен — жду первого пульса` });
     return { status: 'restarting', actions, pids };
   }
-  actions.push({ kind: 'alert', text: `${spec.name}: нет пульса ${fmtAge(age)} (предел ${fmtAge(max)}) — снимаю, обёртка перезапустит` });
-  for (const p of nodes) actions.push({ kind: 'kill', pid: p.pid, text: `${spec.name}: снят pid ${p.pid} за отсутствие пульса` });
+  // Если обёртка задана, снимаем только процессы, у которых она есть в цепочке предков: совпавший по match,
+  // но запущенный не нашей обёрткой процесс может оказаться чужим. Без обёртки этого не отличить — снимаются все совпавшие.
+  let targets = nodes;
+  if (spec.wrapper) {
+    const wrapperPids = new Set(findProcesses(procs, { match: spec.wrapper.match, image: spec.wrapper.image, skipPids: i.skipPids }).map(w => w.pid));
+    targets = nodes.filter(p => p.ppid != null && ancestorPids(procs, p.ppid).some(a => wrapperPids.has(a)));
+  }
+  const head = `${spec.name}: нет пульса ${fmtAge(age)} (предел ${fmtAge(max)})`;
+  if (targets.length === 0) {
+    actions.push({ kind: 'alert', text: `${head} — не снимаю: pid ${pids.join(',')} запущен не обёрткой, проверь вручную` });
+    return { status: 'stale', actions, pids };
+  }
+  actions.push({ kind: 'alert', text: `${head} — снимаю, обёртка перезапустит` });
+  for (const p of nodes) {
+    if (!targets.includes(p)) actions.push({ kind: 'alert', text: `${spec.name}: pid ${p.pid} совпал с match, но запущен не обёрткой — не снимаю` });
+  }
+  for (const p of targets) actions.push({ kind: 'kill', pid: p.pid, text: `${spec.name}: снят pid ${p.pid} за отсутствие пульса` });
   state.lastActionAt = now;
   return { status: 'stale', actions, pids };
 }

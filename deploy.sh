@@ -35,6 +35,7 @@ APP_DIR=.
 SRC_DIR=""
 ARCHIVE_DIR=archive
 STOP_MATCH=()
+STOP_IMAGE=()
 FILES=()
 LOGS=()
 SCRUB_VALUES_FROM=()
@@ -65,16 +66,27 @@ while [ -e "$backup" ]; do backup="$ARCHIVE_DIR/$stamp-$n"; n=$((n + 1)); done
 step() { printf '\n== %s ==\n' "$*"; }
 plan() { printf '  [dry-run] %s\n' "$*"; }
 spawn() { "${CLI[@]}" spawn --cwd "$APP_DIR" -- "$@"; }
+# --image для i-го выражения STOP_MATCH, если в STOP_IMAGE задан образ
+img_of() { img=(); [ -z "${STOP_IMAGE[$1]:-}" ] || img=(--image "${STOP_IMAGE[$1]}"); }
+# строка в одинарных кавычках для вставки в команду; одинарная кавычка внутри становится '\''
+sq() { local q="'" r="'\\''"; printf "'%s'" "${1//"$q"/"$r"}"; }
 
 rollback_hint() {
   echo
   echo "Откат из бэкапа $APP_DIR/$backup:"
   echo "  1) остановить то, что успело запуститься:"
-  for re in "${STOP_MATCH[@]}"; do echo "       node \"$KIT_DIR/src/cli.ts\" kill '$re'"; done
+  for i in "${!STOP_MATCH[@]}"; do
+    img_of "$i"
+    echo "       node $(sq "$KIT_DIR/src/cli.ts") kill $(sq "${STOP_MATCH[$i]}")${img[1]:+ --image $(sq "${img[1]}")}"
+  done
   echo "  2) вернуть файлы прошлой версии:"
-  for f in "${FILES[@]}"; do echo "       cp -R \"$APP_DIR/$backup/$f\" \"$APP_DIR/$f\""; done
+  for f in "${FILES[@]}"; do echo "       cp -R $(sq "$APP_DIR/$backup/$f") $(sq "$APP_DIR/$f")"; done
   echo "  3) запустить прошлую версию тем же способом, что в шаге 7:"
-  if [ "${#START[@]}" -gt 0 ]; then echo "       node \"$KIT_DIR/src/cli.ts\" spawn --cwd \"$APP_DIR\" -- ${START[*]}"; else echo "       start_app из $conf"; fi
+  if [ "${#START[@]}" -gt 0 ]; then
+    local a line="node $(sq "$KIT_DIR/src/cli.ts") spawn --cwd $(sq "$APP_DIR") --"
+    for a in "${START[@]}"; do line+=" $(sq "$a")"; done
+    echo "       $line"
+  else echo "       start_app из $conf"; fi
 }
 
 die() {
@@ -90,12 +102,13 @@ echo "deploy: приложение $APP_DIR${SRC_DIR:+, новая версия 
 
 step "1. останавливаю процессы"
 [ "${#STOP_MATCH[@]}" -gt 0 ] || echo "  STOP_MATCH пуст — останавливать нечего"
-for re in "${STOP_MATCH[@]}"; do
-  echo "  -- $re"
+for i in "${!STOP_MATCH[@]}"; do
+  re="${STOP_MATCH[$i]}"; img_of "$i"
+  echo "  -- $re${img[1]:+ (образ ${img[1]})}"
   if [ "$PLAN" = 1 ]; then
-    "${CLI[@]}" kill "$re" --dry-run | sed 's/^/  /'
+    "${CLI[@]}" kill "$re" "${img[@]}" --dry-run | sed 's/^/  /'
   else
-    "${CLI[@]}" kill "$re" | sed 's/^/  /'
+    "${CLI[@]}" kill "$re" "${img[@]}" | sed 's/^/  /'
     sleep 1
   fi
 done
@@ -104,8 +117,9 @@ if [ "$PLAN" = 1 ]; then
 else
   sleep "$STOP_SETTLE"
   left=0
-  for re in "${STOP_MATCH[@]}"; do
-    c="$("${CLI[@]}" ps "$re" --count)" || { echo "СТОП: список процессов не получен, деплой прерван до любых изменений"; exit 2; }
+  for i in "${!STOP_MATCH[@]}"; do
+    img_of "$i"
+    c="$("${CLI[@]}" ps "${STOP_MATCH[$i]}" "${img[@]}" --count)" || { echo "СТОП: список процессов не получен, деплой прерван до любых изменений"; exit 2; }
     left=$(( left + ${c//$'\r'/} ))
   done
   echo "  осталось процессов: $left"
@@ -188,7 +202,8 @@ if [ -z "$HEARTBEAT" ]; then
   echo "  HEARTBEAT не задан — проверяю только, что процессы есть"
   if [ "$PLAN" != 1 ] && [ "${#STOP_MATCH[@]}" -gt 0 ]; then
     sleep 3
-    c="$("${CLI[@]}" ps "${STOP_MATCH[${#STOP_MATCH[@]}-1]}" --count)" || die 6 "список процессов не получен"
+    last=$(( ${#STOP_MATCH[@]} - 1 )); img_of "$last"
+    c="$("${CLI[@]}" ps "${STOP_MATCH[$last]}" "${img[@]}" --count)" || die 6 "список процессов не получен"
     c="${c//$'\r'/}"
     echo "  процессов: $c"
     [ "$c" -gt 0 ] || die 6 "после запуска процесса нет"

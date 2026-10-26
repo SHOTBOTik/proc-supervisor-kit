@@ -5,7 +5,12 @@
   "description": "Keep long-running Node processes alive on a Windows box: restart wrapper, heartbeat watchdog, safe deploy script.",
   "type": "module",
   "license": "MIT",
-  "author": "SHOTBOTik",
+  "author": "SHOTBOTik (https://shotbotik.me)",
+  "homepage": "https://github.com/SHOTBOTik/proc-supervisor-kit#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SHOTBOTik/proc-supervisor-kit.git"
+  },
   "keywords": [
     "watchdog",
     "supervisor",

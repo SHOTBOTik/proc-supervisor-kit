@@ -23,7 +23,7 @@ function spec(extra: Record<string, unknown> = {}): ResolvedProcess {
   }, '/app').processes[0]!;
 }
 
-const node = (pid: number, cmd: string | null, startedAt: number | null = NOW - 60 * MIN): ProcInfo => ({ pid, name: 'node.exe', cmd, startedAt });
+const node = (pid: number, cmd: string | null, startedAt: number | null = NOW - 60 * MIN, ppid: number | null = null): ProcInfo => ({ pid, name: 'node.exe', cmd, startedAt, ppid });
 const bash = (pid: number, cmd: string): ProcInfo => ({ pid, name: 'bash.exe', cmd, startedAt: NOW - 60 * MIN });
 const WRAPPER = bash(10, 'bash run-forever.sh node worker.js');
 
@@ -46,12 +46,27 @@ test('обёртка bash с тем же worker.js в командной стр�
   assert.deepEqual(r.pids, []);
 });
 
-test('пульс протух — алерт и снятие всех экземпляров', () => {
-  const r = run([WRAPPER, node(11, 'node worker.js')], 600);
+test('пульс протух — алерт и снятие процесса под обёрткой', () => {
+  // под Git Bash между обёрткой и node стоит ещё одна копия bash — снятие смотрит всю цепочку предков
+  const r = run([WRAPPER, { ...WRAPPER, pid: 20, ppid: 10 }, node(11, 'node worker.js', NOW - 60 * MIN, 20)], 600);
   assert.equal(r.status, 'stale');
   assert.deepEqual(r.kinds, ['alert', 'kill']);
   assert.equal(r.actions[1]?.kind === 'kill' && r.actions[1].pid, 11);
   assert.equal(r.state.lastActionAt, NOW);
+});
+
+test('пульс протух: совпавший процесс не под обёрткой не снимается — он может быть чужим', () => {
+  const foreign = run([WRAPPER, node(11, 'node worker.js', NOW - 60 * MIN, 500)], 600);
+  assert.equal(foreign.status, 'stale');
+  assert.deepEqual(foreign.kinds, ['alert']);
+  assert.match((foreign.actions[0] as { text: string }).text, /не снимаю/);
+  assert.equal(foreign.state.lastActionAt, 0);
+  const mixed = run([WRAPPER, node(11, 'node worker.js', NOW - 60 * MIN, 10), node(12, 'node C:/other/worker.js', NOW - 60 * MIN, 500)], 600);
+  assert.deepEqual(mixed.actions.filter(a => a.kind === 'kill').map(a => a.kind === 'kill' && a.pid), [11]);
+  assert.ok(mixed.actions.some(a => a.kind === 'alert' && /pid 12 .*не снимаю/.test(a.text)));
+  // без обёртки в конфиге отличить нельзя — снимаются все совпавшие
+  const noWrapper = run([node(11, 'node worker.js'), node(12, 'node worker.js')], 600, undefined, spec({ wrapper: undefined }));
+  assert.deepEqual(noWrapper.actions.filter(a => a.kind === 'kill').length, 2);
 });
 
 test('пульс протух, но процесс моложе предела — ждём первого пульса', () => {

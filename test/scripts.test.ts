@@ -87,3 +87,30 @@ test('deploy.sh: процессы не остановились — стоп д�
   assert.match(r.stdout, /СТОП: процессы не остановлены/);
   assert.equal(fs.existsSync(path.join(dir, 'archive')), false, 'бэкап не начат');
 });
+
+test('deploy.sh: неудача после бэкапа — команды отката с образом и кавычками разбираются bash обратно', { skip }, () => {
+  const dir = tmpDir();
+  const procs = fwd(path.join(ROOT, 'test', 'fixtures', 'procs.empty.json'));
+  const re = String.raw`psk-no-such-'proc'\.js`;
+  fs.writeFileSync(path.join(dir, 'deploy.conf'), [
+    String.raw`STOP_MATCH=( "psk-no-such-'proc'\\.js" )`,
+    'STOP_IMAGE=( node )',
+    'FILES=( app.js )',
+    'ENTRIES=( bad.js )',
+    'STOP_SETTLE=0',
+    `START=( node "app with 'space'.js" )`,
+    '',
+  ].join('\n'));
+  fs.writeFileSync(path.join(dir, 'app.js'), '');
+  fs.writeFileSync(path.join(dir, 'bad.js'), 'this is not javascript (');
+  const r = bash([script('deploy.sh'), '--config', fwd(path.join(dir, 'deploy.conf'))], { PSK_PROCS_FROM: procs }, 60_000);
+  assert.equal(r.status, 3, r.stdout + r.stderr);
+  assert.match(r.stdout, /СТОП: bad\.js не проходит node --check/);
+  const lines = r.stdout.split('\n').map(l => l.trim());
+  // строка подсказки — готовая команда: bash разбирает её на те же аргументы
+  const argv = (line: string) => bash(['-c', `printf '%s\\n' ${line}`]).stdout.split('\n').slice(0, -1);
+  const kill = argv(lines.find(l => l.startsWith('node ') && l.includes(' kill '))!);
+  assert.deepEqual(kill.slice(2), ['kill', re, '--image', 'node']);
+  const spawn = argv(lines.find(l => l.startsWith('node ') && l.includes(' spawn '))!);
+  assert.deepEqual(spawn.slice(-3), ['--', 'node', "app with 'space'.js"]);
+});
