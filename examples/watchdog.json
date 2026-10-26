@@ -1,0 +1,22 @@
+{
+  "intervalSec": 30,
+  "log": "watchdog.log",
+  "alertsLog": "alerts.log",
+  "logMaxBytes": 5242880,
+  "logKeep": 2,
+  "dedupWindowSec": 600,
+  "summaryEverySec": 3600,
+  "wrapperGraceTicks": 2,
+  "processes": [
+    {
+      "name": "worker",
+      "match": "worker\\.js",
+      "image": "node",
+      "exclude": "--once|--dry-run",
+      "wrapper": { "match": "run-forever\\.sh.*worker\\.js", "image": "bash" },
+      "heartbeat": { "file": "worker.hb", "maxAgeSec": 60 },
+      "start": { "command": "bash", "args": ["../run-forever.sh", "--log", "worker.log", "--", "node", "worker.js"], "cwd": "." },
+      "tail": { "file": "worker.log", "alert": "\\b(error|fatal|unhandled)\\b" }
+    }
+  ]
+}

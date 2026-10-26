@@ -1,0 +1,8 @@
+node_modules/
+*.log
+*.log.[0-9]*
+*.out
+*.hb
+*.hb.tmp
+*.lock
+archive/

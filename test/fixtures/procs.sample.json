@@ -1,0 +1,5 @@
+[
+  { "pid": 1001, "name": "bash.exe", "cmd": "bash ../run-forever.sh --log worker.log -- node worker.js", "started": 1700000000000 },
+  { "pid": 1002, "name": "node.exe", "cmd": "node worker.js", "started": 1700000000000 },
+  { "pid": 1003, "name": "node.exe", "cmd": "node worker.js --once", "started": 1700000000000 }
+]

@@ -1,0 +1,13 @@
+export { Alerter, dedupKey, timesRu } from './alerts.ts';
+export { ConfigError, loadConfig, resolveConfig, validateConfig } from './config.ts';
+export type { ProcessConfig, ResolvedConfig, ResolvedProcess, WatchdogConfig } from './config.ts';
+export { heartbeatAgeSec, heartbeatTime, writeHeartbeat } from './heartbeat.ts';
+export { EXIT_ALREADY_RUNNING, lockOrExit, pidAlive, pidMatches, takeLock } from './lock.ts';
+export type { Lock, LockOptions } from './lock.ts';
+export { RotatingLog } from './logfile.ts';
+export { ancestorPids, findProcesses, imageMatches, isInlineShell, killPid, listProcesses, parseCimJson, parseEtime, parsePs, spawnDetached } from './procs.ts';
+export type { ProcInfo, StartSpec } from './procs.ts';
+export { DEFAULT_RULES, loadEnvValues, scrubFiles, scrubText, userRules } from './scrub.ts';
+export { LogTail } from './tail.ts';
+export { decide, Watchdog } from './watchdog.ts';
+export type { Action, Decision, ProcState, Status, TickResult, WatchdogDeps } from './watchdog.ts';

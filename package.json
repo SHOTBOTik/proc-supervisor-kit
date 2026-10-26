@@ -1,0 +1,31 @@
+{
+  "name": "proc-supervisor-kit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Keep long-running Node processes alive on a Windows box: restart wrapper, heartbeat watchdog, safe deploy script.",
+  "type": "module",
+  "license": "MIT",
+  "author": "SHOTBOTik",
+  "keywords": [
+    "watchdog",
+    "supervisor",
+    "heartbeat",
+    "windows",
+    "git-bash",
+    "deploy"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3"
+  }
+}
