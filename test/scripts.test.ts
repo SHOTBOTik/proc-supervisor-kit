@@ -73,6 +73,15 @@ test('deploy.sh --dry-run: все шаги по порядку, ничего н�
   assert.deepEqual(fs.readdirSync(path.join(ROOT, 'examples')).sort(), before, 'в examples/ ничего не появилось');
 });
 
+test('deploy.sh --dry-run с examples/deploy.conf: снимает сторожа вместе с обёрткой, редактор не трогает', { skip }, () => {
+  // запуск как в README: сторож и worker — каждый под run-forever.sh (у bash после fork две копии с одной командной строкой)
+  const procs = fwd(path.join(ROOT, 'test', 'fixtures', 'procs.readme.json'));
+  const r = bash([script('deploy.sh'), '--config', script('examples/deploy.conf'), '--dry-run'], { PSK_PROCS_FROM: procs }, 60_000);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const pids = [...r.stdout.matchAll(/снял бы pid (\d+)/g)].map(m => Number(m[1])).sort((a, b) => a - b);
+  assert.deepEqual(pids, [2001, 2002, 2003, 2004, 2005], r.stdout);
+});
+
 test('deploy.sh: процессы не остановились — стоп до любых изменений', { skip }, () => {
   const dir = tmpDir();
   // процесс, который «не снимается»: он есть только в подменённом списке; pid 2147483001 не бывает ни в Windows (там pid кратны 4), ни в Linux — kill его не найдёт

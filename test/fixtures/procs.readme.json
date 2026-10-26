@@ -1,0 +1,8 @@
+[
+  { "pid": 2001, "name": "bash.exe", "cmd": "bash ../run-forever.sh --log watchdog.out -- node ../src/cli.ts watch watchdog.json", "started": 1700000000000 },
+  { "pid": 2002, "name": "bash.exe", "cmd": "bash ../run-forever.sh --log watchdog.out -- node ../src/cli.ts watch watchdog.json", "started": 1700000000000 },
+  { "pid": 2003, "name": "node.exe", "cmd": "node ../src/cli.ts watch watchdog.json", "started": 1700000000000 },
+  { "pid": 2004, "name": "bash.exe", "cmd": "bash ../run-forever.sh --log worker.log -- node worker.js", "started": 1700000000000 },
+  { "pid": 2005, "name": "node.exe", "cmd": "node worker.js", "started": 1700000000000 },
+  { "pid": 2006, "name": "notepad.exe", "cmd": "notepad worker.js", "started": 1700000000000 }
+]
